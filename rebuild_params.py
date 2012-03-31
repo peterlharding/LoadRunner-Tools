@@ -1,30 +1,29 @@
 #! /usr/bin/env python
 #
-#  Purpose: read a file
+#  Purpose: Refactor LoadRunner parameter file
 #
-#  $Id: rebuild.py,v 1.2 2003/10/11 08:10:11 zyx Exp $
-#
-#---------------------------------------------------------------------
+#--------------------------------------------------------------------------
 
 import os
 import sys
 import getopt
 
-#---------------------------------------------------------------------
+#--------------------------------------------------------------------------
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 debugFlg    = 0
 verboseFlg  = 0
-filename    = "file.txt"
+filename    = None
+parameters  = {}
 
-#=====================================================================
+#==========================================================================
 
 class Parameter:
    Name       = None
 
    def __init__(self, name):
-      self.Name     = name
+      self.Name      = name
 
    def __str__(self):
       str = "Name: %s " % \
@@ -118,6 +117,7 @@ def rebuild(filename):
       return 2
 
    lineno     = 0
+   groups     = {}
    parameters = {}
    parameter  = None
 
@@ -155,45 +155,64 @@ def rebuild(filename):
 
       if parameter != None:
          if line.find("ColumnName=") == 0:
-            parameter.ColumnName = line
+            parameter.ColumnName                  = line
          elif line.find("Table=") == 0:
-            parameter.Table = line
+            parameter.Table                       = line
+            tmp                                   = parameter.Table.split('"')
+            dataFile                              = tmp[1]
+            if not groups.has_key(dataFile):
+               groups[dataFile]                   = None
          elif line.find("Type=") == 0:
-            parameter.Type = line
+            parameter.Type                        = line
          elif line.find("GenerateNewVal=") == 0:
-            parameter.GenerateNewVal = line
+            parameter.GenerateNewVal              = line
          elif line.find("TableLocation=") == 0:
-            parameter.TableLocation = line
+            parameter.TableLocation               = line
          elif line.find("OriginalValue=") == 0:
-            parameter.OriginalValue = line
+            parameter.OriginalValue               = line
          elif line.find("StartRow=") == 0:
-            parameter.StartRow = line
+            parameter.StartRow                    = line
          elif line.find("Delimiter=") == 0:
-            parameter.Delimiter = line
+            parameter.Delimiter                   = line
          elif line.find("ParamName=") == 0:
-            parameter.ParamName = line
+            parameter.ParamName                   = line
          elif line.find("SelectNextRow=") == 0:
-            parameter.SelectNextRow = line
+            parameter.SelectNextRow               = line
          elif line.find("MaxValue=") == 0:
-            parameter.MaxValue = line
+            parameter.MaxValue                    = line
          elif line.find("MinValue=") == 0:
-            parameter.MinValue = line
+            parameter.MinValue                    = line
          elif line.find("Format=") == 0:
-            parameter.Format = line
+            parameter.Format                      = line
          else:
             print ">>> %s" % line
 
    print "Processed %d lines" % lineno
 
-   keys = parameters.keys()
+   param_files = groups.keys()
 
-   keys.sort()
+   param_files.sort()
 
-   # print keys
+   print param_files
 
-   for idx in range(len(keys)):
-      parameter = parameters[keys[idx]]
-      parameter.write(ofd)
+   for param_file in param_files:
+      try:
+         pfd = open(param_file, 'r')
+      except IOError, msg:
+         sys.stderr.write(param_file + ': cannot open: ' + `msg` + '\n')
+         return 1
+
+      line = pfd.readline()
+      line = line[:-1]
+      line = line.replace('\r','')
+
+      group_params = line.split(',')
+
+      groups[param_file] = group_params
+
+      for name in group_params:
+         parameter = parameters[name]
+         parameter.write(ofd)
 
    ifd.close()
    ofd.close()
@@ -234,6 +253,8 @@ def main():
    wrk = os.getcwd()
 
    name = os.path.basename(wrk)
+
+   print "Processing", name
 
    rebuild(name)
 
